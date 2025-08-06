@@ -29,74 +29,70 @@ bastilla_convo_handler = Object:new {
 
 -- This is the single conversation handling function for bastilla_convo_handler
 function bastilla_convo_handler:getNextConversationScreen(conversationTemplate, conversingPlayer, selectedOption)
-    local creature = LuaCreatureObject(conversingPlayer)
-    local convosession = creature:getConversationSession()
-    local conversation = LuaConversationTemplate(conversationTemplate)
+	local creature = LuaCreatureObject(conversingPlayer)
+	local convosession = creature:getConversationSession()
+	local conversation = LuaConversationTemplate(conversationTemplate)
 
-    if (conversation == nil) then
-        return nil
-    end
+	if (conversation == nil) then
+		return nil
+	end
 
-    local lastConversationScreen = nil
-    if (convosession ~= nil) then
-        local session = LuaConversationSession(convosession)
-        if (session ~= nil) then
-            lastConversationScreen = session:getLastConversationScreen()
-        end
-    end
+	local lastConversationScreen = nil
+	if (convosession ~= nil) then
+		local session = LuaConversationSession(convosession)
+		if (session ~= nil) then
+			lastConversationScreen = session:getLastConversationScreen()
+		end
+	end
 
-    local nextConversationScreen = nil -- Initialize next screen
+	local nextConversationScreen = nil
 
-    -- If this is the initial interaction (no last screen)
-    if (lastConversationScreen == nil) then
-        return conversation:getInitialScreen()
-    else
-        local luaLastConversationScreen = LuaConversationScreen(lastConversationScreen)
-        local optionLink = luaLastConversationScreen:getOptionLink(selectedOption)
-	
-        if (optionLink == "revan_spawn_screen") then
-            -- Get player's object ID for quest status tracking
-            local playerID = SceneObject(conversingPlayer):getObjectID()
-            local revanSpawnedStatus = readData(playerID .. ":revan_spawned_for_quest") -- Checks custom data status
+	if (lastConversationScreen == nil) then
+		return conversation:getInitialScreen()
+	else
+		local luaLastConversationScreen = LuaConversationScreen(lastConversationScreen)
+		local optionLink = luaLastConversationScreen:getOptionLink(selectedOption)
 
-            if (revanSpawnedStatus ~= 1) then -- If Revan hasn't been spawned for this player yet
-                local x = CreatureObject(conversingPlayer):getPositionX()
-                local z = CreatureObject(conversingPlayer):getPositionZ()
-                local y = CreatureObject(conversingPlayer):getPositionY()
-                local planetName = SceneObject(conversingPlayer):getZoneName()
+		if (optionLink == "revan_spawn_screen") then
+			local playerID = SceneObject(conversingPlayer):getObjectID()
+			local revanSpawnedStatus = readData(playerID .. ":revan_spawned_for_quest")
+			local revanGlobalSpawned = readGlobalData("revan_currently_spawned")
 
-                local pRevan = spawnMobile(planetName, "revan", 1, x + 10, z, y + 10, 0, 0)
-                CreatureObject(conversingPlayer):sendSystemMessage("You feel a powerful presence nearby...")
+			if (revanSpawnedStatus ~= 1 and revanGlobalSpawned ~= 1) then
+				local x = CreatureObject(conversingPlayer):getPositionX()
+				local z = CreatureObject(conversingPlayer):getPositionZ()
+				local y = CreatureObject(conversingPlayer):getPositionY()
+				local planetName = SceneObject(conversingPlayer):getZoneName()
 
-                -- NEW: Add item to Revan's inventory if spawn was successful
-                if (pRevan ~= nil) then
-                    local pRevanInventory = CreatureObject(pRevan):getSlottedObject("inventory")
-                    if (pRevanInventory ~= nil) then
-                        -- REPLACE WITH YOUR ACTUAL ITEM'S IFF PATH
-                        giveItem(pRevanInventory, "object/weapon/melee/baton/baton_stun.iff", -1)
-                        CreatureObject(conversingPlayer):sendSystemMessage("Revan spawned and received item: Stun Baton.")
-                    else
-                        CreatureObject(conversingPlayer):sendSystemMessage("Error: Revan's inventory not found after spawn.")
-                    end
-                else
-                    CreatureObject(conversingPlayer):sendSystemMessage("Error: Revan failed to spawn.")
-                end
+				local pRevan = spawnMobile(planetName, "revan", 1, x + 10, z, y + 10, 0, 0)
+				CreatureObject(conversingPlayer):sendSystemMessage("You feel a powerful presence nearby...")
 
-                -- Set a flag that Revan has now been spawned for this player
-                writeData(playerID .. ":revan_spawned_for_quest", 1)
+				if (pRevan ~= nil) then
+					local pRevanInventory = CreatureObject(pRevan):getSlottedObject("inventory")
+					if (pRevanInventory ~= nil) then
+						giveItem(pRevanInventory, "object/weapon/melee/baton/baton_stun.iff", -1)
+						CreatureObject(conversingPlayer):sendSystemMessage("Revan spawned and received item: Stun Baton.")
+					else
+						CreatureObject(conversingPlayer):sendSystemMessage("Error: Revan's inventory not found after spawn.")
+					end
+				else
+					CreatureObject(conversingPlayer):sendSystemMessage("Error: Revan failed to spawn.")
+				end
 
-                nextConversationScreen = conversation:getScreen("first_screen")
-            else
-                -- Revan has already spawned. Give a different dialogue or end conversation.
-                CreatureObject(conversingPlayer):sendSystemMessage("You have already faced Revan. There is nothing more here for you.")
-                nextConversationScreen = conversation:getScreen("revan_already_spawned") -- New screen needed, defined in bastilla_conv.lua
-            end
-        else
-            nextConversationScreen = conversation:getScreen(optionLink)
-        end
-    end
+				writeData(playerID .. ":revan_spawned_for_quest", 1)
+				writeGlobalData("revan_currently_spawned", 1)
 
-    return nextConversationScreen
+				nextConversationScreen = conversation:getScreen("first_screen")
+			else
+				CreatureObject(conversingPlayer):sendSystemMessage("You have already faced Revan or he is already present.")
+				nextConversationScreen = conversation:getScreen("revan_already_spawned")
+			end
+		else
+			nextConversationScreen = conversation:getScreen(optionLink)
+		end
+	end
+
+	return nextConversationScreen
 end
 
 -- The runScreenHandlers function is not needed when getNextConversationScreen handles all logic.
