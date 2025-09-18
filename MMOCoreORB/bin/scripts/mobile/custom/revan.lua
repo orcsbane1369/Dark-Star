@@ -44,8 +44,4 @@ revan = Creature:new {
 	secondaryAttacks = forcepowermaster
 }
 
-function revan:onDeath(pKiller)
-	deleteGlobalData("revan_currently_spawned")
-end
-
 CreatureTemplates:addCreatureTemplate(revan, "revan")
